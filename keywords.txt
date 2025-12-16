@@ -1,4 +1,22 @@
+#######################################
+# Syntax Coloring Map for EvaraTDS
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
 EvaraTDS	KEYWORD1
-getTDS	KEYWORD2
-setKFactor	KEYWORD2
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
 begin	KEYWORD2
+update	KEYWORD2
+getTDS	KEYWORD2
+getEC	KEYWORD2
+getVoltage	KEYWORD2
+setTDSFactor	KEYWORD2
+setTempCoefficient	KEYWORD2
+setKFactor	KEYWORD2

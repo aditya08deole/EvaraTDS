@@ -1,6 +1,6 @@
 /**
  * @file EvaraTDS.cpp
- * @brief Implementation of EvaraTDS Math Engine
+ * @brief Implementation of EvaraTDS Math Engine v1.1.0
  */
 
 #include "EvaraTDS.h"
@@ -26,48 +26,91 @@ static const CalPoint CAL_TABLE[] = {
 };
 static const size_t CAL_TABLE_SIZE = sizeof(CAL_TABLE) / sizeof(CalPoint);
 
-EvaraTDS::EvaraTDS() {}
+EvaraTDS::EvaraTDS() {
+    for(int i=0; i<BUFFER_SIZE; i++) _analogBuffer[i] = 0.0;
+}
 
 void EvaraTDS::begin() {
-    // Reserved for future init
+    _bufferIndex = 0;
 }
 
-void EvaraTDS::setKFactor(float k) {
-    _kFactor = k;
+void EvaraTDS::setTDSFactor(float factor) { _tdsFactor = factor; }
+void EvaraTDS::setTempCoefficient(float coeff) { _tempCoeff = coeff; }
+void EvaraTDS::setKFactor(float k) { _kFactor = k; }
+
+void EvaraTDS::update(float voltage, float temp) {
+    // 1. Fill Buffer (Circular)
+    _analogBuffer[_bufferIndex] = voltage;
+    _bufferIndex++;
+    if(_bufferIndex >= BUFFER_SIZE) _bufferIndex = 0;
+
+    // 2. Median Filtering (Noise Rejection)
+    float cleanVoltage = getMedian(_analogBuffer, BUFFER_SIZE);
+    
+    // 3. Temp Compensation
+    float compFactor = 1.0f + _tempCoeff * (temp - 25.0f);
+    float compVoltage = cleanVoltage / compFactor;
+    
+    _smoothedVolts = compVoltage; // For debugging
+
+    // 4. Calculate TDS using Physics Model
+    float rawTDS = computePoly(compVoltage);
+    
+    // 5. Final Outputs
+    _finalTDS = rawTDS * _kFactor;
+    
+    // EC is derived: TDS = EC * Factor  ->  EC = TDS / Factor
+    if (_tdsFactor > 0) {
+        _finalEC = _finalTDS / _tdsFactor;
+    } else {
+        _finalEC = 0;
+    }
 }
 
-float EvaraTDS::compensateTemperature(float voltage, float temp_c) {
-    // Standard compensation: 2.0% per degree C from 25.0C standard
-    float comp_factor = 1.0f + 0.02f * (temp_c - 25.0f);
-    return voltage / comp_factor;
+float EvaraTDS::getMedian(float* array, int size) {
+    // Create a temporary copy to sort
+    float bCopy[BUFFER_SIZE];
+    for (int i = 0; i < size; i++) bCopy[i] = array[i];
+
+    // Simple Bubble Sort
+    for (int i = 0; i < size - 1; i++) {
+        for (int j = 0; j < size - i - 1; j++) {
+            if (bCopy[j] > bCopy[j + 1]) {
+                float temp = bCopy[j];
+                bCopy[j] = bCopy[j + 1];
+                bCopy[j + 1] = temp;
+            }
+        }
+    }
+    // Return median (middle element)
+    if (size % 2 == 0)
+        return (bCopy[size / 2 - 1] + bCopy[size / 2]) / 2.0;
+    else
+        return bCopy[size / 2];
 }
 
 float EvaraTDS::computePoly(float voltage) {
-    // 1. Deadzone check
+    // Deadzone
     if (voltage <= CAL_TABLE[0].v) return 0.0f;
 
-    // 2. Extrapolation Check (High Range)
+    // Extrapolation (High End)
     if (voltage >= CAL_TABLE[CAL_TABLE_SIZE - 1].v) {
         float m = (CAL_TABLE[CAL_TABLE_SIZE - 1].ppm - CAL_TABLE[CAL_TABLE_SIZE - 2].ppm) / 
                   (CAL_TABLE[CAL_TABLE_SIZE - 1].v - CAL_TABLE[CAL_TABLE_SIZE - 2].v);
         return m * (voltage - CAL_TABLE[CAL_TABLE_SIZE - 1].v) + CAL_TABLE[CAL_TABLE_SIZE - 1].ppm;
     }
 
-    // 3. Interpolation Search
-    // Since the table is sorted, we scan for the bracket
+    // Interpolation (Standard Range)
     for (size_t i = 0; i < CAL_TABLE_SIZE - 1; i++) {
         if (voltage >= CAL_TABLE[i].v && voltage < CAL_TABLE[i+1].v) {
             float slope = (CAL_TABLE[i+1].ppm - CAL_TABLE[i].ppm) / 
                           (CAL_TABLE[i+1].v - CAL_TABLE[i].v);
-            float result = CAL_TABLE[i].ppm + (slope * (voltage - CAL_TABLE[i].v));
-            return result;
+            return CAL_TABLE[i].ppm + (slope * (voltage - CAL_TABLE[i].v));
         }
     }
     return 0.0f;
 }
 
-float EvaraTDS::getTDS(float voltage_volts, float temp_c) {
-    float comp_v = compensateTemperature(voltage_volts, temp_c);
-    float tds = computePoly(comp_v);
-    return tds * _kFactor; // Apply final tuning factor
-}
+float EvaraTDS::getTDS() { return _finalTDS; }
+float EvaraTDS::getEC() { return _finalEC; }
+float EvaraTDS::getVoltage() { return _smoothedVolts; }
