@@ -1,7 +1,7 @@
 /**
  * @file EvaraTDS.h
  * @brief Industrial TDS Calibration & Math Engine
- * @version 1.1.0
+ * @version 1.2.0
  * @author EvaraTech Engineering
  */
 
@@ -10,19 +10,22 @@
 
 #include <Arduino.h>
 
-struct CalPoint {
-    float v;   
-    float ppm; 
+// Professional Calibration Modes
+enum TDSMode {
+    MODE_STATIC, // Lab/Bottle Measurement (High Sensitivity)
+    MODE_INLINE  // Pump Loop Measurement (Flow Compensated)
 };
 
 class EvaraTDS {
   public:
     EvaraTDS();
-
-    /**
-     * @brief Initialize the library internals
-     */
+    
+    // Initialize the library
     void begin();
+
+    // --- NEW: Physics Mode Switch ---
+    // Set to MODE_INLINE for your pipe assembly to fix flow error.
+    void setMode(TDSMode mode);
 
     /**
      * @brief Main DSP update loop. Call this before getting readings.
@@ -32,21 +35,12 @@ class EvaraTDS {
      */
     void update(float voltage_volts, float temp_c);
 
-    /**
-     * @brief Get the calculated TDS value (Parts Per Million)
-     */
-    float getTDS();
+    // Getters
+    float getTDS();      // ppm
+    float getEC();       // uS/cm
+    float getVoltage();  // Smoothed Volts (Temperature Compensated)
 
-    /**
-     * @brief Get the Electrical Conductivity (µS/cm)
-     */
-    float getEC();
-
-    /**
-     * @brief Get the smoothed, temperature-compensated voltage (Useful for debugging)
-     */
-    float getVoltage();
-
+    // Fine-Tuning Settings
     /**
      * @brief Set the TDS Conversion Factor.
      * 0.5 = USA/NaCl (Default)
@@ -62,11 +56,11 @@ class EvaraTDS {
     
     /**
      * @brief Set a manual K-factor tuning multiplier (Default 1.0)
-     * Use this to calibrate the probe if it drifts over time.
      */
     void setKFactor(float k);
 
   private:
+    TDSMode _currentMode = MODE_STATIC;
     float _kFactor = 1.0;
     float _tdsFactor = 0.5;
     float _tempCoeff = 0.02;
@@ -76,12 +70,12 @@ class EvaraTDS {
     float _analogBuffer[BUFFER_SIZE];
     int _bufferIndex = 0;
     
-    // Processed Values
+    // Outputs
     float _finalTDS = 0.0;
     float _finalEC = 0.0;
     float _smoothedVolts = 0.0;
     
-    // Internals
+    // Internal Math Kernels
     float getMedian(float* array, int size);
     float computePoly(float voltage);
 };
