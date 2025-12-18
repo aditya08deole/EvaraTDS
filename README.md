@@ -1,6 +1,6 @@
 # EvaraTDS: Industrial TDS & Conductivity Library
 
-![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/platform-ESP32%20%7C%20Arduino-orange.svg)
 
@@ -8,14 +8,39 @@
 
 ## Overview
 
-The **EvaraTDS** library is a high-precision, industrial-grade firmware module designed for measuring **Total Dissolved Solids (TDS)** and **Electrical Conductivity (EC)** in aqueous solutions.
+The **EvaraTDS** library is a high-precision, industrial-grade firmware module designed for measuring **Total Dissolved Solids (TDS)** and **Electrical Conductivity (EC)**.
 
-Unlike conventional implementations that rely on simple linear approximations, **EvaraTDS** employs a **2nd-Order Polynomial Regression Model** derived from laboratory calibration data (**R² = 0.988**), providing superior accuracy across the **0–1000 PPM** range.
+It features a **Dual-Mode Physics Engine** that solves the common problem of signal attenuation in flowing water.
 
-The library integrates a **Digital Signal Processing (DSP)** engine using **median filtering**, enabling robust noise rejection in electrically noisy environments such as industrial panels containing pumps, relays, solenoids, and motors.
+### ?? Key Features (v1.2.0)
+* **Dual-Mode Calibration**:
+    * `MODE_STATIC`: High-sensitivity model for lab testing (Beaker/Bottle).
+    * `MODE_INLINE`: ML-derived model ($R^2=0.9999$) that compensates for ~38% signal loss caused by flow velocity and micro-bubbles in pipe loops.
+* **DSP Noise Rejection**: Integrated Median Filter to ignore bubble spikes.
+* **Dual Output**: Calculates both **TDS (ppm)** and **EC (ï¿½S/cm)**.
+* **Temperature Compensation**: Automatic normalization to 25ï¿½C.
 
 ---
 
+## ?? Usage
+
+### 1. Basic Setup
+
+```cpp
+#include <EvaraTDS.h>
+
+EvaraTDS tds;
+
+void setup() {
+  tds.begin();
+  
+  // IMPORTANT: Select your environment
+  tds.setMode(MODE_INLINE); // Use this for Pump/Pipe Systems
+  // tds.setMode(MODE_STATIC); // Use this for Cup/Beaker testing
+  
+  tds.setTDSFactor(0.5); // 0.5 for NaCl (USA), 0.7 for Hydroponics
+}
+---
 ## Hardware Architecture
 
 The system is optimized for the **ESP32** platform while remaining compatible with standard Arduino environments. High-resolution analog acquisition is achieved using the **ADS1115 (16-bit ADC)**, and temperature compensation is handled by the **DS18B20** digital temperature sensor.
@@ -23,12 +48,12 @@ The system is optimized for the **ESP32** platform while remaining compatible wi
 ### Component List
 
 1. **Microcontroller:** ESP32 Development Board (e.g., DOIT DEVKIT V1)
-2. **ADC Module:** ADS1115 (16-bit Sigma-Delta ADC, I²C)
+2. **ADC Module:** ADS1115 (16-bit Sigma-Delta ADC, Iï¿½C)
 3. **Temperature Sensor:** DS18B20 (Waterproof, 1-Wire)
 4. **TDS Probe:** Analog TDS Sensor (Gravity Interface, K = 1.0)
 5. **Passive Components**
-   - 1 × 4.7 k? resistor (DS18B20 pull-up)
-   - 2 × 4.7 k? resistors (I²C pull-ups if not present on ADS1115 module)
+   - 1 ï¿½ 4.7 k? resistor (DS18B20 pull-up)
+   - 2 ï¿½ 4.7 k? resistors (Iï¿½C pull-ups if not present on ADS1115 module)
 
 ---
 
@@ -36,14 +61,14 @@ The system is optimized for the **ESP32** platform while remaining compatible wi
 
 ### 1. ADS1115 (ADC) Interfacing
 
-The ADS1115 communicates over the I²C bus. The `ADDR` pin must be tied to **GND** to set the device address to `0x48`.
+The ADS1115 communicates over the Iï¿½C bus. The `ADDR` pin must be tied to **GND** to set the device address to `0x48`.
 
 | ADS1115 Pin | ESP32 Pin | Function | Notes |
 |------------|----------|----------|------|
 | **VCC** | 3.3V / 5V | Power | 5V recommended for improved dynamic range |
 | **GND** | GND | Ground | Common ground |
-| **SCL** | GPIO 22 | I²C Clock | ESP32 default |
-| **SDA** | GPIO 21 | I²C Data | ESP32 default |
+| **SCL** | GPIO 22 | Iï¿½C Clock | ESP32 default |
+| **SDA** | GPIO 21 | Iï¿½C Data | ESP32 default |
 | **ADDR** | GND | Address Select | Sets address to `0x48` |
 | **A0** | TDS Signal | Analog Input | Connect TDS analog output |
 
