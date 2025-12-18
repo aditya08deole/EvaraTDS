@@ -24,9 +24,12 @@ void setup() {
   // Init Library
   tds.begin();
   
-  // OPTIONAL SETTINGS:
-  tds.setTDSFactor(0.5); // 0.5 for USA (NaCl), 0.7 for Hydroponics
-  // tds.setKFactor(1.0); // Use if you need to manually calibrate drift
+  // *** CRITICAL SETTING FOR YOUR PIPE SYSTEM ***
+  // Enable the new ML Model for Inline Flow
+  tds.setMode(MODE_INLINE); 
+  
+  // Optional: Set Factor (0.5 for USA, 0.7 for Hydroponics)
+  tds.setTDSFactor(0.5); 
 }
 
 void loop() {
