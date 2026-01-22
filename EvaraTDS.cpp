@@ -1,6 +1,7 @@
 /**
  * @file EvaraTDS.cpp
- * @brief Implementation of EvaraTDS Math Engine v1.2.0
+ * @brief Implementation of EvaraTDS Math Engine v1.3.0
+ * @details Implements ML-based Quadratic Regression for Static/Inline compensation.
  */
 
 #include "EvaraTDS.h"
@@ -35,15 +36,15 @@ void EvaraTDS::update(float voltage, float temp) {
     float cleanVoltage = getMedian(_analogBuffer, BUFFER_SIZE);
     
     // --- STAGE 3: Physics Normalization ---
-    // Temperature Compensation to standard 25.0�C
+    // Temperature Compensation to standard 25.0°C
     float compFactor = 1.0f + _tempCoeff * (temp - 25.0f);
     float compVoltage = cleanVoltage / compFactor;
     
-    _smoothedVolts = compVoltage; // Store for debugging
+    _smoothedVolts = compVoltage; 
 
-    // --- STAGE 4: Model Inference ---
-    // Select the correct physics model based on the mode
-    float rawTDS = computePoly(compVoltage);
+    // --- STAGE 4: ML Model Inference ---
+    // Calculate final TDS using the specific regression model
+    float rawTDS = computePhysics(compVoltage);
     
     // --- STAGE 5: Final Output Scaling ---
     _finalTDS = rawTDS * _kFactor;
@@ -53,27 +54,33 @@ void EvaraTDS::update(float voltage, float temp) {
     else _finalEC = 0;
 }
 
-float EvaraTDS::computePoly(float v) {
+float EvaraTDS::computePhysics(float v) {
     // Deadzone (Air/Dry Probe Check)
     if (v < 0.02) return 0.0;
 
+    // STEP 1: Calculate "Sensor PPM" (Base Reading)
+    // This represents the uncorrected standard curve used during data collection.
+    // Base Formula: (113.4*v^2) + (425.8*v) + 0.2
+    float sensorPPM = (113.4f * v * v) + (425.8f * v) + 0.2f;
+
+    float realPPM = 0.0;
+
+    // STEP 2: Apply ML Correction (v1.3.0 Calibration)
     if (_currentMode == MODE_STATIC) {
-        // [MODEL A] Static Water (Bottle/Beaker)
-        // Original Calibration | R2 = 0.988
-        // Optimized for high sensitivity in still water
-        return (113.4f * v * v) + (425.8f * v) + 0.2f;
+        // [MODEL A] Static Calibration (v1.3.0)
+        // R2 = 0.9987 | RMSE = 7.36 ppm
+        // Formula: -12.4258 + (1.1965 * Sensor) + (-0.0001 * Sensor^2)
+        realPPM = -12.4258f + (1.1965f * sensorPPM) + (-0.0001f * sensorPPM * sensorPPM);
     } 
     else {
-        // [MODEL B] Dynamic Flow (Inline Pipe Loop)
-        // New ML Calibration | R2 = 0.9999
-        // Derived from 55 data points (0-1000ppm)
-        // Compensates for hydrodynamic signal attenuation (~38% loss)
-        // Formula: 18.05*V^2 + 589.31*V - 3.55
-        float tds = (18.05f * v * v) + (589.31f * v) - 3.55f;
-        
-        // Clamp negative noise near zero
-        return (tds < 0.0f) ? 0.0f : tds;
+        // [MODEL B] Inline Calibration (v1.3.0)
+        // R2 = 0.9993 | RMSE = 5.61 ppm
+        // Formula: -3.7242 + (1.3053 * Sensor) + (0.0001 * Sensor^2)
+        realPPM = -3.7242f + (1.3053f * sensorPPM) + (0.0001f * sensorPPM * sensorPPM);
     }
+
+    // Safety Clamp: Prevent negative readings from regression intercept
+    return (realPPM < 0.0f) ? 0.0f : realPPM;
 }
 
 // Robust Bubble Sort Algorithm for Median Filter
