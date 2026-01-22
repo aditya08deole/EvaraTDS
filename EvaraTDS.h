@@ -1,7 +1,7 @@
 /**
  * @file EvaraTDS.h
  * @brief Industrial TDS Calibration & Math Engine
- * @version 1.2.0
+ * @version 1.3.0
  * @author EvaraTech Engineering
  */
 
@@ -12,8 +12,8 @@
 
 // Professional Calibration Modes
 enum TDSMode {
-    MODE_STATIC, // Lab/Bottle Measurement (High Sensitivity)
-    MODE_INLINE  // Pump Loop Measurement (Flow Compensated)
+    MODE_STATIC, // Lab/Bottle Measurement (High Sensitivity Model)
+    MODE_INLINE  // Pump Loop Measurement (Flow Compensated Model)
 };
 
 class EvaraTDS {
@@ -23,8 +23,8 @@ class EvaraTDS {
     // Initialize the library
     void begin();
 
-    // --- NEW: Physics Mode Switch ---
-    // Set to MODE_INLINE for your pipe assembly to fix flow error.
+    // --- Physics Mode Switch ---
+    // Set to MODE_INLINE for pipe assemblies to apply ML Flow Correction.
     void setMode(TDSMode mode);
 
     /**
@@ -77,7 +77,7 @@ class EvaraTDS {
     
     // Internal Math Kernels
     float getMedian(float* array, int size);
-    float computePoly(float voltage);
+    float computePhysics(float voltage); // Renamed from computePoly for clarity
 };
 
 #endif
