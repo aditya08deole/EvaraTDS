@@ -1,16 +1,22 @@
 #######################################
-# Syntax Coloring Map for EvaraTDS
+
+Syntax Coloring Map for EvaraTDS
+
 #######################################
 
 #######################################
-# Datatypes (KEYWORD1)
+
+Datatypes (KEYWORD1)
+
 #######################################
 
 EvaraTDS	KEYWORD1
 TDSMode	KEYWORD1
 
 #######################################
-# Methods and Functions (KEYWORD2)
+
+Methods and Functions (KEYWORD2)
+
 #######################################
 
 begin	KEYWORD2
@@ -24,7 +30,9 @@ setTempCoefficient	KEYWORD2
 setKFactor	KEYWORD2
 
 #######################################
-# Constants (LITERAL1)
+
+Constants (LITERAL1)
+
 #######################################
 
 MODE_STATIC	LITERAL1
