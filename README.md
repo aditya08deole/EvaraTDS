@@ -48,6 +48,37 @@ The **EvaraTDS** library is a high-precision, industrial-grade firmware module d
 ## 🔧 Usage
 
 ### 1. Basic Setup
+## 🎛️ Advanced Calibration: The K-Factor
+
+While the **EvaraTDS** library includes highly accurate ML models ($R^2 > 0.99$), real-world hardware conditions can vary. The **K-Factor** is a linear multiplier used to fine-tune the final output to match a reference standard.
+
+### Why do I need it?
+Even with a perfect software model, physical factors can introduce small offsets:
+1.  **Probe Aging:** As electrodes oxidize over months, resistance changes.
+2.  **Cable Resistance:** Long wires (>2m) add impedance.
+3.  **Manufacturing Tolerance:** Slight variations in the 100Ω or 1kΩ resistors on your PCB.
+
+### How to Calculate K
+If you notice a consistent percentage error between your EvaraTDS reading and a commercial reference pen, calculate K as follows:
+
+$$K = \frac{\text{Reference Value}}{\text{EvaraTDS Reading}}$$
+
+### Example Scenario
+* **Situation:** You are measuring a calibration solution known to be **500 ppm**.
+* **Reading:** Your EvaraTDS system reads **480 ppm**.
+* **Calculation:** $K = 500 / 480 = \mathbf{1.041}$
+
+### Implementation
+Apply this factor in your `setup()`:
+
+```cpp
+void setup() {
+    tds.begin();
+    tds.setMode(MODE_INLINE);
+    
+    // Apply the correction calculated above
+    tds.setKFactor(1.041); 
+}
 
 ```cpp
 #include <EvaraTDS.h>
