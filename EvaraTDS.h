@@ -1,7 +1,7 @@
 /**
  * @file EvaraTDS.h
  * @brief Industrial TDS Calibration & Math Engine
- * @version 1.3.0
+ * @version 1.4.0
  * @author EvaraTech Engineering
  */
 
@@ -77,7 +77,7 @@ class EvaraTDS {
     
     // Internal Math Kernels
     float getMedian(float* array, int size);
-    float computePhysics(float voltage); // Renamed from computePoly for clarity
+    float computeDirectPhysics(float voltage); 
 };
 
 #endif
