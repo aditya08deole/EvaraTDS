@@ -1,7 +1,7 @@
 /**
  * @file EvaraTDS.cpp
- * @brief Implementation of EvaraTDS Math Engine v1.3.0
- * @details Implements ML-based Quadratic Regression for Static/Inline compensation.
+ * @brief Implementation of EvaraTDS Math Engine v1.4.0
+ * @details Implements Direct Voltage->PPM Quadratic Regression.
  */
 
 #include "EvaraTDS.h"
@@ -37,49 +37,49 @@ void EvaraTDS::update(float voltage, float temp) {
     
     // --- STAGE 3: Physics Normalization ---
     // Temperature Compensation to standard 25.0°C
+    // We normalize voltage first, as the ML model is trained on standard temp behavior.
     float compFactor = 1.0f + _tempCoeff * (temp - 25.0f);
     float compVoltage = cleanVoltage / compFactor;
     
     _smoothedVolts = compVoltage; 
 
-    // --- STAGE 4: ML Model Inference ---
-    // Calculate final TDS using the specific regression model
-    float rawTDS = computePhysics(compVoltage);
+    // --- STAGE 4: Direct ML Model Inference (v1.4.0) ---
+    float calculatedTDS = computeDirectPhysics(compVoltage);
     
     // --- STAGE 5: Final Output Scaling ---
-    _finalTDS = rawTDS * _kFactor;
+    _finalTDS = calculatedTDS * _kFactor;
     
     // Calculate Electrical Conductivity (EC)
     if (_tdsFactor > 0) _finalEC = _finalTDS / _tdsFactor;
     else _finalEC = 0;
 }
 
-float EvaraTDS::computePhysics(float v) {
+float EvaraTDS::computeDirectPhysics(float v) {
     // Deadzone (Air/Dry Probe Check)
     if (v < 0.02) return 0.0;
 
-    // STEP 1: Calculate "Sensor PPM" (Base Reading)
-    // This represents the uncorrected standard curve used during data collection.
-    // Base Formula: (113.4*v^2) + (425.8*v) + 0.2
-    float sensorPPM = (113.4f * v * v) + (425.8f * v) + 0.2f;
-
     float realPPM = 0.0;
 
-    // STEP 2: Apply ML Correction (v1.3.0 Calibration)
+    // Direct Voltage Mapping derived from INLINE.csv and STATIC.csv
+    // Coefficients calculated via Least Squares Regression on provided datasets.
+    // Models adjusted for Temp-Compensated Voltage (25C).
+
     if (_currentMode == MODE_STATIC) {
-        // [MODEL A] Static Calibration (v1.3.0)
-        // R2 = 0.9987 | RMSE = 7.36 ppm
-        // Formula: -12.4258 + (1.1965 * Sensor) + (-0.0001 * Sensor^2)
-        realPPM = -12.4258f + (1.1965f * sensorPPM) + (-0.0001f * sensorPPM * sensorPPM);
+        // [MODEL A] Static Calibration (v1.4.0)
+        // Data Source: STATIC.csv
+        // Trend: Slightly steeper curve in lower voltages
+        // Formula: 11.91*V^2 + 398.26*V + 6.28
+        realPPM = (11.91f * v * v) + (398.26f * v) + 6.28f;
     } 
     else {
-        // [MODEL B] Inline Calibration (v1.3.0)
-        // R2 = 0.9993 | RMSE = 5.61 ppm
-        // Formula: -3.7242 + (1.3053 * Sensor) + (0.0001 * Sensor^2)
-        realPPM = -3.7242f + (1.3053f * sensorPPM) + (0.0001f * sensorPPM * sensorPPM);
+        // [MODEL B] Inline Calibration (v1.4.0)
+        // Data Source: INLINE.csv
+        // Trend: Compensates for flow dynamics where sensitivity shifts
+        // Formula: 9.36*V^2 + 463.50*V + 9.84
+        realPPM = (9.36f * v * v) + (463.50f * v) + 9.84f;
     }
 
-    // Safety Clamp: Prevent negative readings from regression intercept
+    // Safety Clamp
     return (realPPM < 0.0f) ? 0.0f : realPPM;
 }
 
