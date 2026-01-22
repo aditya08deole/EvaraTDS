@@ -283,7 +283,4 @@ Contributions, issues and feature requests are welcome. Please open an issue or 
 
 MIT License — see LICENSE file.
 
----
 
-If you need a trimmed quick-start README, wiring diagram image files, or a script to compute K-factor and log calibration sessions (CSV exporter), tell me which one and I will add it.
-```
