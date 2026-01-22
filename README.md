@@ -105,3 +105,43 @@ A **4.7 k? pull-up resistor** between the Data line and VCC is mandatory.
                     [R] 4.7k? Pull-up
                      |
                    [VCC]
+# EvaraTDS: Industrial TDS & Conductivity Library
+
+![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Platform](https://img.shields.io/badge/platform-ESP32%20%7C%20Arduino-orange.svg)
+
+---
+
+## Overview
+
+The **EvaraTDS** library is a high-precision, industrial-grade firmware module designed for measuring **Total Dissolved Solids (TDS)** and **Electrical Conductivity (EC)**.
+
+### 🚀 Key Features (v1.3.0)
+* **ML-Enhanced Dual-Mode Calibration**:
+    * `MODE_STATIC`: Updated Quadratic Model ($R^2=0.9987$) for high-precision lab testing.
+    * `MODE_INLINE`: Updated Flow Compensation Model ($R^2=0.9993$) that corrects signal attenuation in active pipe loops.
+* **DSP Noise Rejection**: Integrated Median Filter to ignore bubble spikes.
+* **Dual Output**: Calculates both **TDS (ppm)** and **EC (µS/cm)**.
+* **Temperature Compensation**: Automatic normalization to 25°C.
+
+---
+
+## 🔧 Usage
+
+### 1. Basic Setup
+
+```cpp
+#include <EvaraTDS.h>
+
+EvaraTDS tds;
+
+void setup() {
+  tds.begin();
+  
+  // IMPORTANT: Select your environment
+  tds.setMode(MODE_INLINE); // Uses new v1.3.0 Inline Calibration Model
+  // tds.setMode(MODE_STATIC); // Uses new v1.3.0 Static Calibration Model
+  
+  tds.setTDSFactor(0.5); // 0.5 for NaCl (USA), 0.7 for Hydroponics
+}
