@@ -4,8 +4,8 @@
 #include <EvaraTDS.h> 
 
 /**
- * IndustrialRead.ino - EvaraTDS v1.3.0 Example
- * Demonstrates high-precision Inline/Static measurement.
+ * IndustrialRead.ino - EvaraTDS v1.4.0 Example
+ * Demonstrates high-precision Inline/Static measurement with Direct-V Mapping.
  */
 
 // Hardware Objects
@@ -30,8 +30,8 @@ void setup() {
   tds.begin();
   
   // *** CRITICAL SETTING FOR YOUR PIPE SYSTEM ***
-  // v1.3.0 Update: 
-  // MODE_INLINE now uses Poly-2 Regression (R2=0.9993) for flow compensation
+  // v1.4.0 Update: 
+  // MODE_INLINE now uses Direct Voltage Mapping (Poly-2) derived from your CSV.
   tds.setMode(MODE_INLINE); 
   
   // Optional: Set Factor (0.5 for USA, 0.7 for Hydroponics)
@@ -53,7 +53,7 @@ void loop() {
   int16_t adc = ads.readADC_SingleEnded(0);
   float volts = adc * 0.000125f;
 
-  // 2. Feed the Engine (Handles v1.3.0 ML Models)
+  // 2. Feed the Engine (Handles v1.4.0 ML Models)
   tds.update(volts, t);
 
   // 3. Print Results
