@@ -1,5 +1,6 @@
-#######################################
+﻿#######################################
 # Syntax Coloring Map for EvaraTDS
+# v1.3.1
 #######################################
 
 #######################################
@@ -7,25 +8,26 @@
 #######################################
 
 EvaraTDS	KEYWORD1
-TDSMode	KEYWORD1
+TDSMode		KEYWORD1
 
 #######################################
 # Methods and Functions (KEYWORD2)
 #######################################
 
-begin	KEYWORD2
-update	KEYWORD2
-getTDS	KEYWORD2
-getEC	KEYWORD2
-getVoltage	KEYWORD2
-setMode	KEYWORD2
-setTDSFactor	KEYWORD2
+begin				KEYWORD2
+update				KEYWORD2
+setMode				KEYWORD2
+setTDSFactor		KEYWORD2
 setTempCoefficient	KEYWORD2
-setKFactor	KEYWORD2
+setKFactor			KEYWORD2
+getTDS				KEYWORD2
+getEC				KEYWORD2
+getCompVoltage		KEYWORD2
+getRawVoltage		KEYWORD2
 
 #######################################
 # Constants (LITERAL1)
 #######################################
 
-MODE_STATIC	LITERAL1
-MODE_INLINE	LITERAL1
+MODE_STATIC		LITERAL1
+MODE_INLINE		LITERAL1
