@@ -4,26 +4,22 @@
 #include <EvaraTDS.h>
 
 /**
- * IndustrialRead.ino -- EvaraTDS v1.3.1 Example
+ * IndustrialRead.ino -- EvaraTDS v1.4.0 Example
  *
- * Demonstrates high-precision Inline/Static measurement with:
- *  - Cold-start buffer seeding (no false low readings on boot)
- *  - Full temperature compensation via actual sensor temp
- *  - Dual voltage getters: getRawVoltage() and getCompVoltage()
+ * v1.4.0 uses direct voltage->PPM quadratic regression:
+ *   STATIC: 11.91*V^2 + 398.26*V + 6.28
+ *   INLINE:  9.36*V^2 + 463.50*V + 9.84
  */
 
-// Hardware Objects
 Adafruit_ADS1115 ads;
 OneWire oneWire(27);
 DallasTemperature tempSensor(&oneWire);
 
-// Library Object
 EvaraTDS tds;
 
 void setup() {
   Serial.begin(115200);
 
-  // Init Sensors
   if (!ads.begin(0x48)) {
     Serial.println("ADS1115 Failed -- check wiring");
     while (1);
@@ -31,46 +27,34 @@ void setup() {
   ads.setGain(GAIN_ONE);
   tempSensor.begin();
 
-  // Init Library
   tds.begin();
 
-  // Set mode AFTER begin() -- mode is preserved across begin() calls (v1.3.1 FIX #6)
-  // Use MODE_INLINE for pipe assemblies (applies ML Flow Correction, R2=0.9993)
-  // Use MODE_STATIC for bottle/beaker measurements (R2=0.9987)
-  tds.setMode(MODE_INLINE);
+  // Set mode AFTER begin() -- survives soft resets (v1.3.1+ fix)
+  tds.setMode(MODE_INLINE);       // Pipe/pump system
+  // tds.setMode(MODE_STATIC);    // Bottle/beaker lab test
 
-  // TDS Conversion Factor: 0.5 = USA/NaCl (default), 0.7 = Europe/Hydroponics
-  tds.setTDSFactor(0.5);
+  tds.setTDSFactor(0.5);          // 0.5 = NaCl/USA | 0.7 = Hydroponics
+  // tds.setKFactor(1.0);         // Field trim: K = Reference / Reading
 
-  // Optional: Field K-factor trim. Adjust if probe reads slightly off due to aging.
-  // tds.setKFactor(1.0);
-
-  Serial.println("EvaraTDS v1.3.1 ready.");
+  Serial.println("EvaraTDS v1.4.0 ready.");
 }
 
 void loop() {
-  // 1. Read Temperature
   tempSensor.requestTemperatures();
   float t = tempSensor.getTempCByIndex(0);
+  if (t < -10.0f || t > 100.0f) t = 25.0f; // Sensor fail-safe
 
-  // Fail-safe: if sensor disconnects, default to 25C (no compensation applied)
-  if (t < -10.0f || t > 100.0f) t = 25.0f;
-
-  // 2. Read Voltage from ADS1115 (Channel 0)
   int16_t adc   = ads.readADC_SingleEnded(0);
-  float   volts = adc * 0.000125f; // ADS1115 at GAIN_ONE: 0.125mV per LSB
+  float   volts = adc * 0.000125f; // ADS1115 GAIN_ONE: 0.125mV/LSB
 
-  // 3. Feed the Engine
-  // Passing actual temp -> library applies full temperature compensation
-  // To get uncompensated reading (25C reference), pass 25.0f instead
+  // Pass actual temp -> full compensation | Pass 25.0 -> uncompensated reference
   tds.update(volts, t);
 
-  // 4. Print Results
-  Serial.print("Raw V: ");        Serial.print(tds.getRawVoltage(), 4);
-  Serial.print(" V | Comp V: ");  Serial.print(tds.getCompVoltage(), 4);
-  Serial.print(" V | TDS: ");     Serial.print(tds.getTDS(), 1);
-  Serial.print(" ppm | EC: ");    Serial.print(tds.getEC(), 1);
-  Serial.print(" uS/cm | Temp: ");Serial.print(t, 1);
+  Serial.print("Raw V: ");         Serial.print(tds.getRawVoltage(), 4);
+  Serial.print(" | Comp V: ");     Serial.print(tds.getCompVoltage(), 4);
+  Serial.print(" | TDS: ");        Serial.print(tds.getTDS(), 1);
+  Serial.print(" ppm | EC: ");     Serial.print(tds.getEC(), 1);
+  Serial.print(" uS/cm | Temp: "); Serial.print(t, 1);
   Serial.println(" C");
 
   delay(500);

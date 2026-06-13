@@ -1,16 +1,21 @@
-/**
+﻿/**
  * @file EvaraTDS.h
  * @brief Industrial TDS Calibration & Math Engine
- * @version 1.3.1
+ * @version 1.4.0
  * @author EvaraTech Engineering
  *
- * Changelog v1.3.1:
- *  - FIX #1: Resolved all git merge conflicts (kept v1.3.0 logic throughout)
- *  - FIX #2: Buffer pre-filled with first real reading to eliminate cold-start zero bias
- *  - FIX #3: BUFFER_SIZE increased from 10 to 15 to match firmware window
- *  - FIX #4: getVoltage() renamed to getCompVoltage(); getRawVoltage() added for true raw ADC value
- *  - FIX #5: Input validation added in update() — voltage and temp clamped to safe ranges
- *  - FIX #6: begin() no longer resets _currentMode — mode survives soft resets
+ * Changelog v1.4.0:
+ *  - NEW: Direct Voltage->PPM single-stage quadratic regression
+ *         (replaces two-stage ML pipeline from v1.3.x)
+ *         STATIC: 11.91*V^2 + 398.26*V + 6.28  (Data: STATIC.csv)
+ *         INLINE:  9.36*V^2 + 463.50*V + 9.84  (Data: INLINE.csv)
+ *
+ * All v1.3.1 quality fixes retained:
+ *  - FIX #2: Cold-start buffer seeded from first real reading (no zero-bias)
+ *  - FIX #3: BUFFER_SIZE = 15 (matches firmware median window)
+ *  - FIX #4: getRawVoltage() / getCompVoltage() split (no misleading getVoltage)
+ *  - FIX #5: Input validation -- voltage [0-5V], temp [-10-100C]
+ *  - FIX #6: begin() does NOT reset _currentMode
  */
 
 #ifndef EVARATDS_H
@@ -18,7 +23,7 @@
 
 #include <Arduino.h>
 
-// Professional Calibration Modes
+// Calibration Modes
 enum TDSMode {
     MODE_STATIC, // Lab/Bottle Measurement (High Sensitivity Model)
     MODE_INLINE  // Pump Loop Measurement (Flow Compensated Model)
@@ -30,69 +35,67 @@ class EvaraTDS {
 
     /**
      * @brief Initialize the library. Safe to call multiple times.
-     * NOTE: Does NOT reset TDSMode — set your mode after begin() and it will survive re-init.
+     * Does NOT reset TDSMode -- mode survives soft-resets.
      */
     void begin();
 
-    // --- Physics Mode Switch ---
-    // Set to MODE_INLINE for pipe assemblies to apply ML Flow Correction.
+    // Mode switch -- set AFTER begin()
     void setMode(TDSMode mode);
 
     /**
-     * @brief Main DSP update loop. Call this before getting readings.
-     * Incorporates Median Filtering to reject noise.
-     * Input validation: voltage clamped to [0.0, 5.0]V; temp clamped to [-10, 100]C.
-     * @param voltage_volts Raw voltage from ADS1115 or Analog Pin
-     * @param temp_c Current temperature in Celsius
+     * @brief Main DSP update loop. Call this every sample cycle.
+     * Includes median filtering, temp compensation, and v1.4.0 direct regression.
+     * @param voltage_volts  Raw ADC voltage [0.0 - 5.0 V]
+     * @param temp_c         Water temperature in Celsius [-10 - 100 C]
      */
     void update(float voltage_volts, float temp_c);
 
     // --- Getters ---
-    float getTDS();           // ppm — final K-factor scaled reading
+    float getTDS();           // ppm -- K-factor scaled final reading
     float getEC();            // uS/cm
-    float getCompVoltage();   // Smoothed, Temperature-Compensated voltage (for diagnostics)
-    float getRawVoltage();    // Raw median-filtered voltage BEFORE temperature compensation
+    float getRawVoltage();    // Median-filtered voltage BEFORE temp compensation
+    float getCompVoltage();   // Median-filtered voltage AFTER temp compensation
 
-    // Fine-Tuning Settings
+    // --- Fine-Tuning ---
     /**
-     * @brief Set the TDS Conversion Factor.
-     * 0.5 = USA/NaCl (Default)
-     * 0.7 = Europe/Hydroponics (442)
+     * @brief TDS Conversion Factor.
+     * 0.5 = USA/NaCl (default) | 0.7 = Europe/Hydroponics (442)
      */
     void setTDSFactor(float factor);
 
     /**
-     * @brief Set Temperature Compensation Coefficient.
-     * Default: 0.02 (2.0% per degree C)
+     * @brief Temperature Compensation Coefficient.
+     * Default: 0.02 (2% per degree C)
      */
     void setTempCoefficient(float coeff);
 
     /**
-     * @brief Set a manual K-factor tuning multiplier (Default 1.0)
+     * @brief Manual K-factor field calibration multiplier (default 1.0).
+     * K = Reference / Reading  (e.g. K = 500/480 = 1.041)
      */
     void setKFactor(float k);
 
   private:
     TDSMode _currentMode = MODE_STATIC;
-    float _kFactor       = 1.0f;
-    float _tdsFactor     = 0.5f;
-    float _tempCoeff     = 0.02f;
+    float   _kFactor     = 1.0f;
+    float   _tdsFactor   = 0.5f;
+    float   _tempCoeff   = 0.02f;
 
-    // DSP Buffers — size 15 to match firmware median window
+    // DSP buffer -- 15 samples to match firmware median window
     static const int BUFFER_SIZE = 15;
     float _analogBuffer[BUFFER_SIZE];
     int   _bufferIndex  = 0;
-    bool  _bufferSeeded = false; // tracks cold-start state
+    bool  _bufferSeeded = false;
 
     // Outputs
-    float _finalTDS     = 0.0f;
-    float _finalEC      = 0.0f;
-    float _compVolts    = 0.0f; // post-compensation (for getCompVoltage)
-    float _rawVolts     = 0.0f; // pre-compensation  (for getRawVoltage)
+    float _finalTDS  = 0.0f;
+    float _finalEC   = 0.0f;
+    float _rawVolts  = 0.0f; // pre  temp-compensation
+    float _compVolts = 0.0f; // post temp-compensation
 
-    // Internal Math Kernels
+    // Internal Math
     float getMedian(float* array, int size);
-    float computePhysics(float voltage); // v1.3.0 two-stage ML regression
+    float computeDirectPhysics(float voltage); // v1.4.0 direct V->PPM model
 };
 
 #endif
