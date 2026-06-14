@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file EvaraTDS.cpp
  * @brief Implementation of EvaraTDS Math Engine v1.4.0
  * @details Direct Voltage->PPM Quadratic Regression.
@@ -34,9 +34,9 @@ void EvaraTDS::begin() {
 // Setters
 // ---------------------------------------------------------------------------
 void EvaraTDS::setMode(TDSMode mode)           { _currentMode = mode; }
-void EvaraTDS::setTDSFactor(float factor)      { _tdsFactor   = factor; }
-void EvaraTDS::setKFactor(float k)             { _kFactor     = k; }
-void EvaraTDS::setTempCoefficient(float coeff) { _tempCoeff   = coeff; }
+void EvaraTDS::setTDSFactor(float factor)      { if (factor > 0.0f) _tdsFactor = factor; } // Guard: reject 0 or negative
+void EvaraTDS::setKFactor(float k)             { if (k      > 0.0f) _kFactor   = k;      } // Guard: reject 0 or negative
+void EvaraTDS::setTempCoefficient(float coeff) { _tempCoeff = coeff; }
 
 // ---------------------------------------------------------------------------
 // update()
@@ -54,7 +54,7 @@ void EvaraTDS::update(float voltage, float temp) {
     if (!_bufferSeeded) {
         for (int i = 0; i < BUFFER_SIZE; i++) _analogBuffer[i] = voltage;
         _bufferSeeded = true;
-        _bufferIndex  = 0;
+        _bufferIndex  = 1; // FIX: Start at 1 — slot 0 already written above, avoids double-write
     }
 
     // --- STAGE 1: Data Ingestion ---
@@ -69,11 +69,20 @@ void EvaraTDS::update(float voltage, float temp) {
     // --- FIX #4: Store raw (pre-compensation) voltage ---
     _rawVolts = cleanVoltage;
 
+    // --- STAGE 3b: Calculate UNCOMPENSATED TDS (from raw voltage, no temp adjustment) ---
+    // This is the "reference" TDS at nominal 25°C without temperature effect
+    float rawTDS = computeDirectPhysics(cleanVoltage);  // Applied to raw voltage
+    _rawTDS = rawTDS * _kFactor;  // Apply K-factor to uncompensated TDS
+
     // --- STAGE 3: Temperature Compensation to 25.0 C standard ---
     // Pass actual temp for compensated reading.
     // Pass 25.0 to get uncompensated reference reading.
     float compFactor  = 1.0f + _tempCoeff * (temp - 25.0f);
     float compVoltage = cleanVoltage / compFactor;
+
+    // FIX: Clamp compensated voltage to valid range [0-5V]
+    // At cold temps (-10°C), division can amplify voltage 3.3x beyond calibration range
+    compVoltage = constrain(compVoltage, 0.0f, 5.0f);
 
     // Store compensated voltage (FIX #4)
     _compVolts = compVoltage;
@@ -142,7 +151,9 @@ float EvaraTDS::getMedian(float* array, int size) {
 // ---------------------------------------------------------------------------
 // Getters
 // ---------------------------------------------------------------------------
-float EvaraTDS::getTDS()         { return _finalTDS;  }
-float EvaraTDS::getEC()          { return _finalEC;   }
-float EvaraTDS::getRawVoltage()  { return _rawVolts;  } // pre  temp-compensation
-float EvaraTDS::getCompVoltage() { return _compVolts; } // post temp-compensation
+float EvaraTDS::getTDS()         { return _finalTDS;  }  // ppm, temp-compensated + K-factor
+float EvaraTDS::getTDSRaw()      { return _rawTDS;    }  // ppm, NO temp compensation + K-factor
+float EvaraTDS::getEC()          { return _finalEC;   }  // µS/cm, from compensated TDS
+float EvaraTDS::getRawEC()       { return (_tdsFactor > 0.0f) ? (_rawTDS / _tdsFactor) : 0.0f; } // µS/cm, from uncompensated TDS
+float EvaraTDS::getRawVoltage()  { return _rawVolts;  }  // V, median-filtered, pre-compensation
+float EvaraTDS::getCompVoltage() { return _compVolts; }  // V, median-filtered, post-compensation

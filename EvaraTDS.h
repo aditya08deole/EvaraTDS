@@ -50,11 +50,31 @@ class EvaraTDS {
      */
     void update(float voltage_volts, float temp_c);
 
-    // --- Getters ---
-    float getTDS();           // ppm -- K-factor scaled final reading
-    float getEC();            // uS/cm
+    // --- Getters: TDS & Voltage ---
+    float getTDS();           // ppm -- Temperature compensated + K-factor scaled
+    float getTDSRaw();        // ppm -- Temperature UNCOMPENSATED (raw voltage model) + K-factor
     float getRawVoltage();    // Median-filtered voltage BEFORE temp compensation
     float getCompVoltage();   // Median-filtered voltage AFTER temp compensation
+
+    // --- Getters: Electrical Conductivity (EC) ---
+    // EC is the direct physical measurement of water conductivity in microsiemens per centimeter.
+    // Standard formula: EC (µS/cm) = TDS (ppm) / TDSFactor
+    // For NaCl (TDSFactor=0.5): EC = TDS × 2
+
+    /**
+     * @brief Final EC with full processing (temperature compensated + K-factor scaled).
+     * This is the primary EC output for water quality measurements.
+     * Use this for data logging and cloud upload. ← RECOMMENDED
+     * @return EC in µS/cm (microsiemens per centimeter) -- final calibrated value
+     */
+    float getEC();
+
+    /**
+     * @brief Raw EC (temperature compensated, K-factor NOT applied).
+     * Use this only if you need unscaled EC for advanced debugging or research.
+     * @return Electrical Conductivity in µS/cm (microsiemens per centimeter)
+     */
+    float getRawEC();
 
     // --- Fine-Tuning ---
     /**
@@ -90,6 +110,7 @@ class EvaraTDS {
     // Outputs
     float _finalTDS  = 0.0f;
     float _finalEC   = 0.0f;
+    float _rawTDS    = 0.0f;  // Uncompensated TDS (from raw voltage)
     float _rawVolts  = 0.0f; // pre  temp-compensation
     float _compVolts = 0.0f; // post temp-compensation
 

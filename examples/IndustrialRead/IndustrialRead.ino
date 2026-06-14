@@ -1,4 +1,4 @@
-﻿#include <Wire.h>
+#include <Wire.h>
 #include <Adafruit_ADS1X15.h>
 #include <DallasTemperature.h>
 #include <EvaraTDS.h>
@@ -42,20 +42,24 @@ void setup() {
 void loop() {
   tempSensor.requestTemperatures();
   float t = tempSensor.getTempCByIndex(0);
-  if (t < -10.0f || t > 100.0f) t = 25.0f; // Sensor fail-safe
+  if (t < -10.0f || t > 100.0f) t = 25.0f; // Sensor fail-safe: default to 25°C
 
   int16_t adc   = ads.readADC_SingleEnded(0);
-  float   volts = adc * 0.000125f; // ADS1115 GAIN_ONE: 0.125mV/LSB
+  float   volts = adc * 0.000125f; // ADS1115 GAIN_ONE: 0.125 mV per LSB
 
-  // Pass actual temp -> full compensation | Pass 25.0 -> uncompensated reference
+  // update() always uses actual temperature for full compensation.
+  // getTDS()    = compensated ppm   (ThingSpeak field2)
+  // getTDSRaw() = uncompensated ppm (ThingSpeak field5, no temp adjustment)
+  // getEC()     = compensated EC    (ThingSpeak field6, µS/cm = TDS / TDSFactor)
   tds.update(volts, t);
 
-  Serial.print("Raw V: ");         Serial.print(tds.getRawVoltage(), 4);
-  Serial.print(" | Comp V: ");     Serial.print(tds.getCompVoltage(), 4);
-  Serial.print(" | TDS: ");        Serial.print(tds.getTDS(), 1);
-  Serial.print(" ppm | EC: ");     Serial.print(tds.getEC(), 1);
-  Serial.print(" uS/cm | Temp: "); Serial.print(t, 1);
-  Serial.println(" C");
+  // --- Serial output in ThingSpeak field order ---
+  Serial.print("[F1] CompV: ");   Serial.print(tds.getCompVoltage(), 4); Serial.print(" V");
+  Serial.print(" | [F2] TDS: "); Serial.print(tds.getTDS(), 1);         Serial.print(" ppm");
+  Serial.print(" | [F3] Temp: "); Serial.print(t, 1);                   Serial.print(" C");
+  Serial.print(" | [F4] RawV: "); Serial.print(tds.getRawVoltage(), 4); Serial.print(" V");
+  Serial.print(" | [F5] Raw: ");  Serial.print(tds.getTDSRaw(), 1);     Serial.print(" ppm");
+  Serial.print(" | [F6] EC: ");   Serial.print(tds.getEC(), 1);         Serial.println(" uS/cm");
 
   delay(500);
 }
